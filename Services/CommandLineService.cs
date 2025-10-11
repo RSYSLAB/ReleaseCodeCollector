@@ -17,7 +17,7 @@ public class CommandLineService
     /// <param name="configuration">Application configuration</param>
     public CommandLineService(IConfiguration configuration)
     {
-        _configuration = configuration;
+        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
     }
 
     /// <summary>
