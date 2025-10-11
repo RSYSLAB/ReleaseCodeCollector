@@ -48,14 +48,8 @@ public class MockConfigurationSection : IConfigurationSection
         set => _data[$"{_key}:{key}"] = value ?? string.Empty;
     }
 
-    public string Key
-    {
-        get;
-    }
-    public string Path
-    {
-        get;
-    }
+    public string Key { get; private set; }
+    public string Path { get; private set; }
     public string? Value
     {
         get => _data.TryGetValue(_key, out var value) ? value : null;
