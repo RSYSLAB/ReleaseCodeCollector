@@ -166,7 +166,7 @@ public class FileInformationTests
     }
 
     [Test]
-    public void FileInformation_ToString_ContainsKey信息()
+    public void FileInformation_ToString_ContainsKeyInformation()
     {
         // Arrange
         var fileInfo = new FileInformation(
