@@ -65,7 +65,7 @@ dotnet run -- --source C:\Projects
 dotnet run -- -s C:\Projects
 
 # With deployment tracking
-dotnet run -- --source C:\Code --tags "v1.0,production" --deployment "Release-2025-10-15"
+ C:\Code --tags "v1.0,production" --deployment "Release-2025-10-15"
 
 # With custom deployment date
 dotnet run -- -s C:\Projects -t "v2.0,hotfix" -d "Hotfix-2025-10-16" -dd "2025-10-16 09:30:00"

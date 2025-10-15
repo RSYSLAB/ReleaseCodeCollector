@@ -1,6 +1,8 @@
 using NUnit.Framework;
 using ReleaseCodeCollector.Services;
 using ReleaseCodeCollector.Models;
+using Microsoft.Extensions.Logging;
+using Moq;
 using System.Data;
 
 namespace ReleaseCodeCollector.Tests.Services;
@@ -14,12 +16,26 @@ namespace ReleaseCodeCollector.Tests.Services;
 public class DatabaseServiceTests
 {
     private const string TestConnectionString = "Server=localhost;Database=TestDB;Integrated Security=true;TrustServerCertificate=true;";
+    private Mock<ILogger<DatabaseService>>? _mockLogger;
+
+    [SetUp]
+    public void SetUp()
+    {
+        _mockLogger = new Mock<ILogger<DatabaseService>>();
+    }
 
     [Test]
     public void Constructor_WithValidConnectionString_CreatesInstance()
     {
         // Act & Assert
         Assert.DoesNotThrow(() => new DatabaseService(TestConnectionString));
+    }
+
+    [Test]
+    public void Constructor_WithValidConnectionStringAndLogger_CreatesInstance()
+    {
+        // Act & Assert
+        Assert.DoesNotThrow(() => new DatabaseService(TestConnectionString, _mockLogger!.Object));
     }
 
     [Test]
@@ -235,6 +251,87 @@ public class DatabaseServiceTests
         // Note: This assumes there's some way to verify the connection string was set
         // If the connection string is not accessible, this test validates construction
         Assert.That(service, Is.Not.Null);
+        Assert.That(service, Is.InstanceOf<IDatabaseService>());
+    }
+
+    [Test]
+    public void DatabaseService_ImplementsInterface()
+    {
+        // Arrange & Act
+        var service = new DatabaseService(TestConnectionString);
+
+        // Assert
+        Assert.That(service, Is.InstanceOf<IDatabaseService>());
+    }
+
+    [Test]
+    public void GetDeploymentReleasesByRunIdAsync_WithValidRunId_DoesNotThrowOnCreation()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+        var runId = Guid.NewGuid();
+
+        // Act & Assert - This validates the method exists and can be called
+        Assert.DoesNotThrow(() =>
+        {
+            var task = service.GetDeploymentReleasesByRunIdAsync(runId);
+            Assert.That(task, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void GetFileInformationByRunIdAsync_WithValidRunId_DoesNotThrowOnCreation()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+        var runId = Guid.NewGuid();
+
+        // Act & Assert - This validates the method exists and can be called
+        Assert.DoesNotThrow(() =>
+        {
+            var task = service.GetFileInformationByRunIdAsync(runId);
+            Assert.That(task, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void GetFileCountByRunIdAsync_WithValidRunId_DoesNotThrowOnCreation()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+        var runId = Guid.NewGuid();
+
+        // Act & Assert - This validates the method exists and can be called
+        Assert.DoesNotThrow(() =>
+        {
+            var task = service.GetFileCountByRunIdAsync(runId);
+            Assert.That(task, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void DatabaseService_WithLogger_DoesNotThrow()
+    {
+        // Arrange & Act & Assert
+        Assert.DoesNotThrow(() =>
+        {
+            var service = new DatabaseService(TestConnectionString, _mockLogger!.Object);
+            Assert.That(service, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void TestConnectionAsync_DoesNotThrowOnCreation()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+
+        // Act & Assert - This validates the method exists and can be called
+        Assert.DoesNotThrow(() =>
+        {
+            var task = service.TestConnectionAsync();
+            Assert.That(task, Is.Not.Null);
+        });
     }
 
     // Helper methods for creating test data
