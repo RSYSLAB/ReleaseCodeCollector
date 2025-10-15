@@ -47,7 +47,7 @@ internal class Program
             // Print startup information
             Console.WriteLine("=== Release Code Collector ===");
             Console.WriteLine($"Run ID: {runId}");
-            Console.WriteLine($"Directory: {options.Directory}");
+            Console.WriteLine($"Source: {options.Source}");
             Console.WriteLine($"Database: {GetDatabaseFromConnectionString(options.ConnectionString)}");
             Console.WriteLine($"Batch Size: {options.BatchSize:N0}");
             Console.WriteLine($"Max File Size: {options.MaxFileSize:N0} bytes ({GetFileSize(options.MaxFileSize)})");
@@ -65,13 +65,13 @@ internal class Program
             Console.WriteLine();
 
             // Discover files
-            Console.WriteLine($"Discovering files in: {options.Directory}");
+            Console.WriteLine($"Discovering files in: {options.Source}");
             var stopwatch = Stopwatch.StartNew();
 
             var fileCount = 0;
 
             // Use the async enumerable directly with the batch insert method
-            var fileEnumerable = fileDiscoveryService.DiscoverFilesAsync(runId, options.Directory);
+            var fileEnumerable = fileDiscoveryService.DiscoverFilesAsync(runId, options.Source);
 
             await foreach (var fileInfo in fileEnumerable)
             {
@@ -84,7 +84,7 @@ internal class Program
 
             // Process all files in batches
             fileCount = await databaseService.InsertFileInformationBatchAsync(
-                fileDiscoveryService.DiscoverFilesAsync(runId, options.Directory),
+                fileDiscoveryService.DiscoverFilesAsync(runId, options.Source),
                 options.BatchSize);
 
             stopwatch.Stop();

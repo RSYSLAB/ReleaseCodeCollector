@@ -48,8 +48,14 @@ public class MockConfigurationSection : IConfigurationSection
         set => _data[$"{_key}:{key}"] = value ?? string.Empty;
     }
 
-    public string Key { get; private set; }
-    public string Path { get; private set; }
+    public string Key
+    {
+        get; private set;
+    }
+    public string Path
+    {
+        get; private set;
+    }
     public string? Value
     {
         get => _data.TryGetValue(_key, out var value) ? value : null;
@@ -107,16 +113,16 @@ public class CommandLineServiceTests
     }
 
     [Test]
-    public void ParseArguments_WithValidDirectoryArgument_ParsesCorrectly()
+    public void ParseArguments_WithValidSourceArgument_ParsesCorrectly()
     {
         // Arrange
-        var args = new[] { "--directory", @"C:\Test" };
+        var args = new[] { "--source", @"C:\Test" };
 
         // Act
         var result = _service.ParseArguments(args);
 
         // Assert
-        Assert.That(result.Directory, Is.EqualTo(@"C:\Test"));
+        Assert.That(result.Source, Is.EqualTo(@"C:\Test"));
         Assert.That(result.ConnectionString, Is.EqualTo("Server=localhost;Database=TestDB;Integrated Security=true;"));
         Assert.That(result.BatchSize, Is.EqualTo(500));
         Assert.That(result.MaxFileSize, Is.EqualTo(104857600L));
@@ -125,20 +131,20 @@ public class CommandLineServiceTests
     }
 
     [Test]
-    public void ParseArguments_WithShortDirectoryArgument_ParsesCorrectly()
+    public void ParseArguments_WithShortSourceArgument_ParsesCorrectly()
     {
         // Arrange
-        var args = new[] { "-d", @"C:\Projects" };
+        var args = new[] { "-s", @"C:\Projects" };
 
         // Act
         var result = _service.ParseArguments(args);
 
         // Assert
-        Assert.That(result.Directory, Is.EqualTo(@"C:\Projects"));
+        Assert.That(result.Source, Is.EqualTo(@"C:\Projects"));
     }
 
     [Test]
-    public void ParseArguments_WithPositionalDirectory_ParsesCorrectly()
+    public void ParseArguments_WithPositionalSource_ParsesCorrectly()
     {
         // Arrange
         var args = new[] { @"C:\BackwardCompatibility" };
@@ -147,7 +153,7 @@ public class CommandLineServiceTests
         var result = _service.ParseArguments(args);
 
         // Assert
-        Assert.That(result.Directory, Is.EqualTo(@"C:\BackwardCompatibility"));
+        Assert.That(result.Source, Is.EqualTo(@"C:\BackwardCompatibility"));
     }
 
     [Test]
@@ -283,14 +289,82 @@ public class CommandLineServiceTests
     }
 
     [Test]
+    public void ParseArguments_WithDeploymentDateArgument_ParsesCorrectly()
+    {
+        // Arrange
+        var args = new[] { "--source", @"C:\Test", "--deployment-date", "2025-10-15 14:30:00" };
+
+        // Act
+        var result = _service.ParseArguments(args);
+
+        // Assert
+        Assert.That(result.DeploymentDate, Is.EqualTo(new DateTime(2025, 10, 15, 14, 30, 0)));
+    }
+
+    [Test]
+    public void ParseArguments_WithShortDeploymentDateArgument_ParsesCorrectly()
+    {
+        // Arrange
+        var args = new[] { "--source", @"C:\Test", "-dd", "2025-12-25" };
+
+        // Act
+        var result = _service.ParseArguments(args);
+
+        // Assert
+        Assert.That(result.DeploymentDate, Is.EqualTo(new DateTime(2025, 12, 25)));
+    }
+
+    [Test]
+    public void ParseArguments_WithInvalidDeploymentDate_ThrowsException()
+    {
+        // Arrange
+        var args = new[] { "--source", @"C:\Test", "--deployment-date", "invalid-date" };
+
+        // Act & Assert
+        var ex = Assert.Throws<ArgumentException>(() => _service.ParseArguments(args));
+        Assert.That(ex?.Message, Is.EqualTo("Deployment date must be a valid date format."));
+    }
+
+    [Test]
+    public void ParseArguments_WithMissingDeploymentDateValue_ThrowsException()
+    {
+        // Arrange
+        var args = new[] { "--source", @"C:\Test", "--deployment-date" };
+
+        // Act & Assert
+        var ex = Assert.Throws<ArgumentException>(() => _service.ParseArguments(args));
+        Assert.That(ex?.Message, Is.EqualTo("Deployment date parameter requires a value."));
+    }
+
+    [Test]
+    public void ParseArguments_WithoutDeploymentDate_UsesCurrentTime()
+    {
+        // Arrange
+        var beforeParsing = DateTime.UtcNow;
+        var args = new[] { "--source", @"C:\Test" };
+
+        // Act
+        var result = _service.ParseArguments(args);
+        var afterParsing = DateTime.UtcNow;
+
+        // Assert
+        Assert.That(result.DeploymentDate, Is.GreaterThanOrEqualTo(beforeParsing));
+        Assert.That(result.DeploymentDate, Is.LessThanOrEqualTo(afterParsing));
+    }
+
+    [Test]
     public void ParseArguments_WithAllArguments_ParsesCorrectly()
     {
         // Arrange
+        var expectedDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var args = new[] {
-            "--directory", @"C:\FullTest",
+            "--source", @"C:\FullTest",
             "--connection", "Server=full;Database=Test;",
             "--batch-size", "750",
             "--max-file-size", "209715200",
+            "--tags", "v1.0,production",
+            "--deployment", "release-2025-10-15",
+            "--deployment-date", "2025-10-15 14:30:00",
             "--verbose"
         };
 
@@ -298,10 +372,13 @@ public class CommandLineServiceTests
         var result = _service.ParseArguments(args);
 
         // Assert
-        Assert.That(result.Directory, Is.EqualTo(@"C:\FullTest"));
+        Assert.That(result.Source, Is.EqualTo(@"C:\FullTest"));
         Assert.That(result.ConnectionString, Is.EqualTo("Server=full;Database=Test;"));
         Assert.That(result.BatchSize, Is.EqualTo(750));
         Assert.That(result.MaxFileSize, Is.EqualTo(209715200L));
+        Assert.That(result.Tags, Is.EqualTo("v1.0,production"));
+        Assert.That(result.Deployment, Is.EqualTo("release-2025-10-15"));
+        Assert.That(result.DeploymentDate, Is.EqualTo(expectedDate));
         Assert.That(result.Verbose, Is.True);
         Assert.That(result.ShowHelp, Is.False);
     }
@@ -315,13 +392,13 @@ public class CommandLineServiceTests
 
         try
         {
-            var args = new[] { "--directory", "%TEST_PATH%", "--connection", "Server=%TEST_SERVER%;Database=Test;" };
+            var args = new[] { "--source", "%TEST_PATH%", "--connection", "Server=%TEST_SERVER%;Database=Test;" };
 
             // Act
             var result = _service.ParseArguments(args);
 
             // Assert
-            Assert.That(result.Directory, Is.EqualTo(@"C:\TestExpansion"));
+            Assert.That(result.Source, Is.EqualTo(@"C:\TestExpansion"));
             Assert.That(result.ConnectionString, Is.EqualTo("Server=testserver;Database=Test;"));
         }
         finally
@@ -339,13 +416,13 @@ public class CommandLineServiceTests
 
         try
         {
-            var args = new[] { "--directory", "$UNIX_TEST_PATH" };
+            var args = new[] { "--source", "$UNIX_TEST_PATH" };
 
             // Act
             var result = _service.ParseArguments(args);
 
             // Assert
-            Assert.That(result.Directory, Is.EqualTo(@"C:\UnixTest"));
+            Assert.That(result.Source, Is.EqualTo(@"C:\UnixTest"));
         }
         finally
         {
@@ -361,13 +438,13 @@ public class CommandLineServiceTests
 
         try
         {
-            var args = new[] { "--directory", "${BRACED_TEST_PATH}" };
+            var args = new[] { "--source", "${BRACED_TEST_PATH}" };
 
             // Act
             var result = _service.ParseArguments(args);
 
             // Assert
-            Assert.That(result.Directory, Is.EqualTo(@"C:\BracedTest"));
+            Assert.That(result.Source, Is.EqualTo(@"C:\BracedTest"));
         }
         finally
         {
@@ -379,11 +456,11 @@ public class CommandLineServiceTests
     public void ParseArguments_WithMissingDirectoryValue_ThrowsException()
     {
         // Arrange
-        var args = new[] { "--directory" };
+        var args = new[] { "--source" };
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentException>(() => _service.ParseArguments(args));
-        Assert.That(ex?.Message, Is.EqualTo("Directory parameter requires a value."));
+        Assert.That(ex?.Message, Is.EqualTo("Source parameter requires a value."));
     }
 
     [Test]
@@ -446,13 +523,17 @@ public class CommandLineServiceTests
     {
         // Arrange
         var tempDir = Path.GetTempPath();
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             tempDir,
             "Server=localhost;Database=Test;",
             500,
             1048576L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
@@ -462,43 +543,51 @@ public class CommandLineServiceTests
     }
 
     [Test]
-    public void ValidateOptions_WithEmptyDirectory_ReturnsError()
+    public void ValidateOptions_WithEmptySource_ReturnsError()
     {
         // Arrange
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             "",
             "Server=localhost;Database=Test;",
             500,
             1048576L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
 
         // Assert
         Assert.That(errors, Has.Count.EqualTo(1));
-        Assert.That(errors[0], Is.EqualTo("Directory parameter is required."));
+        Assert.That(errors[0], Is.EqualTo("Source parameter is required."));
     }
 
     [Test]
-    public void ValidateOptions_WithNonExistentDirectory_ReturnsError()
+    public void ValidateOptions_WithNonExistentSource_ReturnsError()
     {
         // Arrange
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             @"C:\NonExistentDirectory\SubDir",
             "Server=localhost;Database=Test;",
             500,
             1048576L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
 
         // Assert
         Assert.That(errors, Has.Count.EqualTo(1));
-        Assert.That(errors[0], Is.EqualTo(@"Directory 'C:\NonExistentDirectory\SubDir' does not exist."));
+        Assert.That(errors[0], Is.EqualTo(@"Source 'C:\NonExistentDirectory\SubDir' does not exist."));
     }
 
     [Test]
@@ -506,13 +595,17 @@ public class CommandLineServiceTests
     {
         // Arrange
         var tempDir = Path.GetTempPath();
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             tempDir,
             "Server=localhost;Database=Test;",
             0,
             1048576L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
@@ -527,13 +620,17 @@ public class CommandLineServiceTests
     {
         // Arrange
         var tempDir = Path.GetTempPath();
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             tempDir,
             "Server=localhost;Database=Test;",
             -100,
             1048576L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
@@ -548,13 +645,17 @@ public class CommandLineServiceTests
     {
         // Arrange
         var tempDir = Path.GetTempPath();
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             tempDir,
             "Server=localhost;Database=Test;",
             500,
             0L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
@@ -568,20 +669,24 @@ public class CommandLineServiceTests
     public void ValidateOptions_WithMultipleErrors_ReturnsAllErrors()
     {
         // Arrange
+        var deploymentDate = new DateTime(2025, 10, 15, 14, 30, 0);
         var options = new CommandLineOptions(
             "",
             "Server=localhost;Database=Test;",
             -1,
             -1L,
             false,
-            false);
+            false,
+            "test,unit",
+            "test-deployment",
+            deploymentDate);
 
         // Act
         var errors = _service.ValidateOptions(options);
 
         // Assert
         Assert.That(errors, Has.Count.EqualTo(3));
-        Assert.That(errors, Does.Contain("Directory parameter is required."));
+        Assert.That(errors, Does.Contain("Source parameter is required."));
         Assert.That(errors, Does.Contain("Batch size must be greater than 0."));
         Assert.That(errors, Does.Contain("Max file size must be greater than 0."));
     }

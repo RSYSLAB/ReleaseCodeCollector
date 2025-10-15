@@ -1,11 +1,12 @@
 # Release Code Collector
 
-A .NET 9 console application that recursively scans directories for files, extracts their metadata and content, and stores the information in an MSSQL database using Dapper ORM.
+A .NET 9 console application that recursively scans directories for files, extracts their metadata and content, and stores the information in an MSSQL database using Dapper ORM. The application also tracks deployment releases with associated metadata.
 
 ## Features
 
 - **Recursive File Discovery**: Scans all files and subdirectories under a specified path
 - **Comprehensive File Information**: Collects file path, name, extension, size, timestamps, and content
+- **Deployment Release Tracking**: Associates file collections with deployment releases including tags and deployment dates
 - **Run Tracking**: Each execution generates a unique UUID to group all files processed in that run
 - **Smart Content Reading**: Automatically detects binary files and large files to avoid reading non-text content
 - **Database Integration**: Uses Dapper ORM with MSSQL for efficient data storage
@@ -42,20 +43,14 @@ The application now supports named command-line arguments for better usability a
 ### Basic Usage with Named Arguments
 
 ```bash
-dotnet run -- --directory <path>
-dotnet run -- -d <path>
-```
-
-### Backward Compatibility (Positional Arguments)
-
-```bash
-dotnet run -- <directory_path>
+dotnet run -- --source <path>
+dotnet run -- -s <path>
 ```
 
 ### Full Named Arguments Syntax
 
 ```bash
-dotnet run -- --directory <path> [--connection <conn_string>] [--batch-size <number>] [--max-file-size <bytes>] [--verbose] [--help]
+dotnet run -- --source <path> [--connection <conn_string>] [--tags <tags>] [--deployment <deployment>] [--deployment-date <date>] [--batch-size <number>] [--max-file-size <bytes>] [--verbose] [--help]
 ```
 
 ### Examples
@@ -66,46 +61,58 @@ dotnet run -- --help
 dotnet run -- -h
 
 # Basic usage with named arguments
-dotnet run -- --directory C:\Projects
-dotnet run -- -d C:\Projects
+dotnet run -- --source C:\Projects
+dotnet run -- -s C:\Projects
+
+# With deployment tracking
+dotnet run -- --source C:\Code --tags "v1.0,production" --deployment "Release-2025-10-15"
+
+# With custom deployment date
+dotnet run -- -s C:\Projects -t "v2.0,hotfix" -d "Hotfix-2025-10-16" -dd "2025-10-16 09:30:00"
 
 # With custom connection string and verbose output
-dotnet run -- --directory C:\Code --connection "Server=myserver;Database=MyDB;User Id=user;Password=pass;" --verbose
+dotnet run -- --source C:\Code --connection "Server=myserver;Database=MyDB;User Id=user;Password=pass;" --verbose
 
 # With custom batch size and max file size
-dotnet run -- -d D:\Source -b 1000 -m 52428800 -v
+dotnet run -- -s D:\Source -b 1000 -m 52428800 -v
 
 # Backward compatibility - positional argument still works
 dotnet run -- C:\Projects
 # Scan current directory with default connection
-dotnet run -- --directory C:\Projects
+dotnet run -- --source C:\Projects
 
-# Scan specific directory with custom database
-dotnet run -- --directory C:\MyCode --connection "Server=prod-server;Database=CodeAnalysis;Integrated Security=true;"
+# Scan with deployment information
+dotnet run -- --source C:\MyCode --tags "v1.0,production" --deployment "Production-Release"
 
-# Scan and use local SQL Server Express with custom batch size
-dotnet run -- -d D:\Source -c "Server=localhost\SQLEXPRESS;Database=ReleaseCodeCollector;Integrated Security=true;TrustServerCertificate=true;" -b 250
+# Scan specific directory with custom database and deployment tracking
+dotnet run -- --source C:\MyCode --connection "Server=prod-server;Database=CodeAnalysis;Integrated Security=true;" --tags "v2.1,staging" --deployment "Staging-2025-10-15"
+
+# Scan and use local SQL Server Express with custom batch size and deployment date
+dotnet run -- -s D:\Source -c "Server=localhost\SQLEXPRESS;Database=ReleaseCodeCollector;Integrated Security=true;TrustServerCertificate=true;" -b 250 -t "hotfix" -d "Emergency-Fix" -dd "2025-10-15 14:30:00"
 
 # Full configuration with all options
-dotnet run -- --directory C:\Projects --connection "Server=myserver;Database=CodeDB;Integrated Security=true;" --batch-size 1000 --max-file-size 52428800 --verbose
+dotnet run -- --source C:\Projects --connection "Server=myserver;Database=CodeDB;Integrated Security=true;" --batch-size 1000 --max-file-size 52428800 --tags "v3.0,release" --deployment "Major-Release-3.0" --deployment-date "2025-12-01 10:00:00" --verbose
 ```
 
 ## Command Line Arguments
 
-| Argument          | Short | Description                   | Default                                                                                              | Required |
-| ----------------- | ----- | ----------------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
-| `--directory`     | `-d`  | Path to directory to scan     | -                                                                                                    | Yes      |
-| `--connection`    | `-c`  | MSSQL connection string       | Server=localhost;Database=ReleaseCodeCollector;Integrated Security=true;TrustServerCertificate=true; | No       |
-| `--batch-size`    | `-b`  | Files per database batch      | 500                                                                                                  | No       |
-| `--max-file-size` | `-m`  | Max file size to read (bytes) | 104857600 (100MB)                                                                                    | No       |
-| `--verbose`       | `-v`  | Enable verbose output         | false                                                                                                | No       |
-| `--help`          | `-h`  | Show help information         | -                                                                                                    | No       |
+| Argument            | Short | Description                      | Default                                                                                              | Required |
+| ------------------- | ----- | -------------------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
+| `--source`          | `-s`  | Path to source directory to scan | -                                                                                                    | Yes      |
+| `--tags`            | `-t`  | Tags to associate with this run  | -                                                                                                    | Yes      |
+| `--deployment`      | `-d`  | Deployment identifier            | -                                                                                                    | Yes      |
+| `--deployment-date` | `-dd` | Deployment date and time         | Current UTC date and time                                                                            | No       |
+| `--connection`      | `-c`  | MSSQL connection string          | Server=localhost;Database=ReleaseCodeCollector;Integrated Security=true;TrustServerCertificate=true; | No       |
+| `--batch-size`      | `-b`  | Files per database batch         | 500                                                                                                  | No       |
+| `--max-file-size`   | `-m`  | Max file size to read (bytes)    | 104857600 (100MB)                                                                                    | No       |
+| `--verbose`         | `-v`  | Enable verbose output            | false                                                                                                | No       |
+| `--help`            | `-h`  | Show help information            | -                                                                                                    | No       |
 
-**Note:** The application maintains backward compatibility with positional arguments where the first argument is treated as the directory path.
+**Note:** The application maintains backward compatibility with positional arguments where the first argument is treated as the source directory path.
 
 ### Environment Variable Support
 
-The application supports environment variable expansion in command-line arguments for the `--directory` and `--connection` parameters. This allows for flexible configuration across different environments.
+The application supports environment variable expansion in command-line arguments for the `--source` and `--connection` parameters. This allows for flexible configuration across different environments.
 
 **Supported Formats:**
 
@@ -116,15 +123,15 @@ The application supports environment variable expansion in command-line argument
 
 ```bash
 # Windows environment variables
-dotnet run -- --directory %PROJECT_PATH%
-dotnet run -- -d %MY_SOURCE% -c "Server=%DB_SERVER%;Database=%DB_NAME%;Integrated Security=true;"
+dotnet run -- --source %PROJECT_PATH%
+dotnet run -- -s %MY_SOURCE% -c "Server=%DB_SERVER%;Database=%DB_NAME%;Integrated Security=true;"
 
 # Unix/Linux style variables
-dotnet run -- --directory $HOME/projects
-dotnet run -- -d ${SOURCE_DIR} -c "Server=$DB_HOST;Database=$DB_NAME;"
+dotnet run -- --source $HOME/projects
+dotnet run -- -s ${SOURCE_DIR} -c "Server=$DB_HOST;Database=$DB_NAME;"
 
-# Mixed usage
-dotnet run -- --directory %USERPROFILE%\Documents\Projects -c "Server=${DB_SERVER};Database=MyDB;"
+# Mixed usage with deployment tracking
+dotnet run -- --source %USERPROFILE%\Documents\Projects -c "Server=${DB_SERVER};Database=MyDB;" --tags "v1.0" --deployment "Release-${BUILD_NUMBER}"
 ```
 
 **Environment Variable Examples:**
@@ -136,7 +143,7 @@ $env:DB_SERVER = "localhost"
 $env:DB_NAME = "CodeDatabase"
 
 # Run with environment variables
-dotnet run -- --directory %PROJECT_PATH% --verbose
+dotnet run -- --source %PROJECT_PATH% --tags "production" --deployment "Release-${BUILD_VERSION}" --verbose
 ```
 
 ## Architecture
@@ -153,6 +160,7 @@ The application follows a clean, service-based architecture with clear separatio
 
 - **`FileInformation`**: Record type representing file metadata and content with RunId tracking
 - **`CommandLineOptions`**: Record type representing parsed command-line arguments and configuration options
+- **`DeploymentRelease`**: Record type representing deployment release information with tags and deployment dates
 
 ### Key Benefits
 
@@ -169,6 +177,7 @@ ReleaseCodeCollector/
 ├── Models/
 │   ├── FileInformation.cs      # File metadata and content model
 │   ├── CommandLineOptions.cs   # Command-line options model
+│   ├── DeploymentRelease.cs    # Deployment release model
 │   └── README.md               # Models documentation
 ├── Services/
 │   ├── CommandLineService.cs   # Argument parsing and validation
@@ -188,7 +197,9 @@ Program.cs
 
 ## Database Schema
 
-The application automatically creates a `ReleaseCodeFiles` table with the following structure:
+The application automatically creates two main tables for storing file information and deployment release data:
+
+### DEPLOYMENT_RELEASE_FILES Table
 
 | Column        | Type             | Description                              |
 | ------------- | ---------------- | ---------------------------------------- |
@@ -208,11 +219,23 @@ The application automatically creates a `ReleaseCodeFiles` table with the follow
 | ErrorMessage  | NVARCHAR(1000)   | Error message if processing failed       |
 | ProcessedDate | DATETIME2        | When the record was inserted             |
 
-**Run Tracking**: Each execution of the application generates a unique `RunId` (UUID/GUID) that is assigned to all files processed during that run. This allows you to:
+### DEPLOYMENT_RELEASE Table
+
+| Column         | Type             | Description                              |
+| -------------- | ---------------- | ---------------------------------------- |
+| Id             | BIGINT IDENTITY  | Primary key                              |
+| RunId          | UNIQUEIDENTIFIER | Links to the execution run               |
+| Tags           | NVARCHAR(255)    | Comma-separated tags (e.g., v1.0,prod)   |
+| Deployment     | NVARCHAR(255)    | Deployment identifier/name               |
+| DeploymentDate | DATETIME2        | When the deployment was created/executed |
+| ProcessedDate  | DATETIME2        | When the record was inserted             |
+
+**Run Tracking**: Each execution of the application generates a unique `RunId` (UUID/GUID) that is assigned to all files processed during that run and links the deployment release information. This allows you to:
 
 - Group files by execution run
-- Track when specific collections were performed
-- Compare results between different runs
+- Track deployment releases with their associated files
+- Compare results between different deployments
+- Associate file changes with specific deployment versions
 - Clean up data from specific runs if needed
 
 ## Content Search Capabilities
@@ -236,68 +259,127 @@ One of the powerful features of the Release Code Collector is the ability to sea
 - Identify files using deprecated libraries or patterns
 - Find security-sensitive code patterns
 - Analyze code patterns across multiple projects
+- Track changes between different deployment versions
+- Compare file content across different releases
+- Audit code changes for specific deployment releases
+
+## Deployment Release Tracking
+
+The Release Code Collector now includes comprehensive deployment release tracking capabilities, allowing you to associate file collections with specific deployment versions, tags, and timestamps.
+
+### Key Features
+
+- **Tagged Releases**: Associate deployments with custom tags (e.g., "v1.0", "production", "hotfix")
+- **Deployment Identification**: Assign unique names to each deployment release
+- **Timestamp Tracking**: Record when deployments were created or executed
+- **Linked File Data**: All files processed in a run are automatically linked to the deployment release
+- **Historical Analysis**: Compare files and content across different deployment versions
+
+### Deployment Workflow
+
+1. **Specify Deployment Information**: Use `--tags`, `--deployment`, and optionally `--deployment-date` parameters
+2. **Process Files**: The application scans and processes files as usual
+3. **Database Storage**: Files are stored in `DEPLOYMENT_RELEASE_FILES` and deployment info in `DEPLOYMENT_RELEASE`
+4. **Query and Analysis**: Use SQL queries to analyze deployments, compare versions, and track changes
+
+### Example Deployment Scenarios
+
+```bash
+# Production release
+dotnet run -- --source C:\Projects\MyApp --tags "v2.1.0,production,stable" --deployment "Production-Release-2.1.0"
+
+# Hotfix deployment
+dotnet run -- -s C:\Projects\MyApp -t "v2.1.1,hotfix,critical" -d "Hotfix-SecurityPatch" -dd "2025-10-15 16:30:00"
+
+# Staging deployment
+dotnet run -- --source C:\Projects\MyApp --tags "v2.2.0-rc1,staging,release-candidate" --deployment "Staging-RC1"
+
+# Development snapshot
+dotnet run -- -s C:\Projects\MyApp -t "dev,feature-branch,experimental" -d "Dev-FeatureX-Snapshot"
+```
 
 ### Useful Queries
 
 ```sql
 -- Get all files from a specific run
-SELECT * FROM ReleaseCodeFiles WHERE RunId = 'your-run-id-here';
+SELECT * FROM DEPLOYMENT_RELEASE_FILES WHERE RunId = 'your-run-id-here';
 
--- Get summary statistics by run
-SELECT RunId, COUNT(*) as FileCount,
-       SUM(FileSizeBytes) as TotalSize,
-       MIN(ProcessedDate) as RunStartTime,
-       MAX(ProcessedDate) as RunEndTime
-FROM ReleaseCodeFiles
-GROUP BY RunId;
+-- Get deployment release information for a specific run
+SELECT * FROM DEPLOYMENT_RELEASE WHERE RunId = 'your-run-id-here';
 
--- Get the most recent run
-SELECT TOP 1 RunId FROM ReleaseCodeFiles
-ORDER BY ProcessedDate DESC;
+-- Get files and deployment information together
+SELECT f.FullPath, f.FileName, f.FileExtension, f.FileSizeBytes,
+       d.Tags, d.Deployment, d.DeploymentDate
+FROM DEPLOYMENT_RELEASE_FILES f
+INNER JOIN DEPLOYMENT_RELEASE d ON f.RunId = d.RunId
+WHERE f.RunId = 'your-run-id-here';
+
+-- Get summary statistics by deployment
+SELECT d.Tags, d.Deployment, d.DeploymentDate,
+       COUNT(f.Id) as FileCount,
+       SUM(f.FileSizeBytes) as TotalSize,
+       MIN(f.ProcessedDate) as RunStartTime,
+       MAX(f.ProcessedDate) as RunEndTime
+FROM DEPLOYMENT_RELEASE d
+LEFT JOIN DEPLOYMENT_RELEASE_FILES f ON d.RunId = f.RunId
+GROUP BY d.Tags, d.Deployment, d.DeploymentDate, d.RunId
+ORDER BY d.DeploymentDate DESC;
+
+-- Get the most recent deployment
+SELECT TOP 1 * FROM DEPLOYMENT_RELEASE
+ORDER BY DeploymentDate DESC;
+
+-- Find deployments by tag
+SELECT * FROM DEPLOYMENT_RELEASE
+WHERE Tags LIKE '%production%'
+ORDER BY DeploymentDate DESC;
 
 -- Search for files containing specific text in their content
-SELECT FullPath, FileName, FileExtension, FileSizeBytes
-FROM ReleaseCodeFiles
-WHERE Content LIKE '%your-search-term%'
-  AND IsReadable = 1;
+SELECT f.FullPath, f.FileName, f.FileExtension, f.FileSizeBytes,
+       d.Tags, d.Deployment, d.DeploymentDate
+FROM DEPLOYMENT_RELEASE_FILES f
+INNER JOIN DEPLOYMENT_RELEASE d ON f.RunId = d.RunId
+WHERE f.Content LIKE '%your-search-term%'
+  AND f.IsReadable = 1;
 
 -- Search for files containing a specific function name (case-insensitive)
-SELECT FullPath, FileName, COUNT(*) as Occurrences
-FROM ReleaseCodeFiles
-WHERE LOWER(Content) LIKE '%function myfunction%'
-  AND IsReadable = 1
-GROUP BY FullPath, FileName
+SELECT f.FullPath, f.FileName, COUNT(*) as Occurrences,
+       d.Tags, d.Deployment
+FROM DEPLOYMENT_RELEASE_FILES f
+INNER JOIN DEPLOYMENT_RELEASE d ON f.RunId = d.RunId
+WHERE LOWER(f.Content) LIKE '%function myfunction%'
+  AND f.IsReadable = 1
+GROUP BY f.FullPath, f.FileName, d.Tags, d.Deployment
 ORDER BY Occurrences DESC;
 
 -- Find all files that contain database connection strings
-SELECT FullPath, FileName, FileExtension
-FROM ReleaseCodeFiles
-WHERE Content LIKE '%connectionstring%'
-   OR Content LIKE '%server=%'
-   OR Content LIKE '%database=%'
-  AND IsReadable = 1;
+SELECT f.FullPath, f.FileName, f.FileExtension,
+       d.Tags, d.Deployment, d.DeploymentDate
+FROM DEPLOYMENT_RELEASE_FILES f
+INNER JOIN DEPLOYMENT_RELEASE d ON f.RunId = d.RunId
+WHERE (f.Content LIKE '%connectionstring%'
+   OR f.Content LIKE '%server=%'
+   OR f.Content LIKE '%database=%')
+  AND f.IsReadable = 1;
 
--- Search for TODO comments across all files
-SELECT FullPath, FileName, FileExtension,
-       LEN(Content) - LEN(REPLACE(LOWER(Content), 'todo', '')) as TodoCount
-FROM ReleaseCodeFiles
-WHERE LOWER(Content) LIKE '%todo%'
-  AND IsReadable = 1
-ORDER BY TodoCount DESC;
+-- Compare file counts between different deployments
+SELECT d.Deployment, d.Tags, d.DeploymentDate,
+       COUNT(f.Id) as FileCount,
+       SUM(f.FileSizeBytes) as TotalSizeBytes
+FROM DEPLOYMENT_RELEASE d
+LEFT JOIN DEPLOYMENT_RELEASE_FILES f ON d.RunId = f.RunId
+GROUP BY d.Deployment, d.Tags, d.DeploymentDate, d.RunId
+ORDER BY d.DeploymentDate DESC;
 
--- Find files by extension that contain specific patterns
-SELECT FullPath, FileName, FileSizeBytes
-FROM ReleaseCodeFiles
-WHERE FileExtension IN ('.cs', '.js', '.ts', '.py')
-  AND Content LIKE '%async%'
-  AND IsReadable = 1;
-
--- Full-text search for multiple terms (requires full-text indexing)
--- Note: You may need to enable full-text search on the Content column
-SELECT FullPath, FileName, FileExtension
-FROM ReleaseCodeFiles
-WHERE CONTAINS(Content, '"database" AND "connection"')
-  AND IsReadable = 1;
+-- Find files by extension that contain specific patterns for a deployment
+SELECT f.FullPath, f.FileName, f.FileSizeBytes,
+       d.Deployment, d.Tags
+FROM DEPLOYMENT_RELEASE_FILES f
+INNER JOIN DEPLOYMENT_RELEASE d ON f.RunId = d.RunId
+WHERE f.FileExtension IN ('.cs', '.js', '.ts', '.py')
+  AND f.Content LIKE '%async%'
+  AND f.IsReadable = 1
+  AND d.Tags LIKE '%production%';
 ```
 
 ## Configuration
@@ -334,10 +416,16 @@ Errors are logged with descriptive messages, and processing continues for other 
 ```
 ReleaseCodeCollector/
 ├── Models/
-│   └── FileInfo.cs              # File information data model
+│   ├── FileInformation.cs       # File metadata and content model
+│   ├── CommandLineOptions.cs   # Command-line options model
+│   └── DeploymentRelease.cs    # Deployment release model
 ├── Services/
 │   ├── FileDiscoveryService.cs  # File scanning and processing
+│   ├── CommandLineService.cs    # Argument parsing and validation
 │   └── DatabaseService.cs       # Database operations with Dapper
+├── Tests/                       # Unit tests
+│   ├── Models/                  # Model tests
+│   └── Services/                # Service tests
 ├── Program.cs                   # Main application entry point
 ├── appsettings.json            # Configuration settings
 └── ReleaseCodeCollector.csproj # Project file

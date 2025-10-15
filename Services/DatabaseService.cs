@@ -30,8 +30,8 @@ public class DatabaseService : IDisposable
     public async Task InitializeDatabaseAsync(CancellationToken cancellationToken = default)
     {
         const string createTableSql = """
-            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='ReleaseCodeFiles' AND xtype='U')
-            CREATE TABLE ReleaseCodeFiles (
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='DEPLOYMENT_RELEASE_FILES' AND xtype='U')
+            CREATE TABLE DEPLOYMENT_RELEASE_FILES (
                 Id BIGINT IDENTITY(1,1) PRIMARY KEY,
                 RunId UNIQUEIDENTIFIER NOT NULL,
                 FullPath NVARCHAR(4000) NOT NULL,
@@ -47,13 +47,24 @@ public class DatabaseService : IDisposable
                 IsReadable BIT NOT NULL,
                 ErrorMessage NVARCHAR(1000),
                 ProcessedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-                INDEX IX_ReleaseCodeFiles_RunId NONCLUSTERED (RunId),
-                INDEX IX_ReleaseCodeFiles_FullPath NONCLUSTERED (FullPath),
-                INDEX IX_ReleaseCodeFiles_FileExtension NONCLUSTERED (FileExtension),
-                INDEX IX_ReleaseCodeFiles_ModifiedDate NONCLUSTERED (ModifiedDate)
+                INDEX IX_DeploymentReleaseFiles_RunId NONCLUSTERED (RunId),
+                INDEX IX_DeploymentReleaseFiles_FullPath NONCLUSTERED (FullPath),
+                INDEX IX_DeploymentReleaseFiles_FileExtension NONCLUSTERED (FileExtension),
+                INDEX IX_DeploymentReleaseFiles_ModifiedDate NONCLUSTERED (ModifiedDate)
             );
-            """;
-
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='DEPLOYMENT_RELEASE' AND xtype='U')
+            CREATE TABLE DEPLOYMENT_RELEASE (
+                Id BIGINT IDENTITY(1,1) PRIMARY KEY,
+                RunId UNIQUEIDENTIFIER NOT NULL,
+                Tags NVARCHAR(255) NOT NULL,
+                Deployment NVARCHAR(255) NOT NULL,
+                DeploymentDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                ProcessedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+                INDEX IX_DeploymentRelease_RunId NONCLUSTERED (RunId),
+                INDEX IX_DeploymentRelease_Deployment NONCLUSTERED (Deployment),
+                INDEX IX_DeploymentRelease_Tags NONCLUSTERED (Tags)
+            );
+    """;
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await connection.ExecuteAsync(createTableSql);
@@ -70,7 +81,7 @@ public class DatabaseService : IDisposable
         ArgumentNullException.ThrowIfNull(fileInformationList);
 
         const string insertSql = """
-            INSERT INTO ReleaseCodeFiles 
+            INSERT INTO DEPLOYMENT_RELEASE_FILES
             (RunId, FullPath, FileName, FileExtension, DirectoryPath, FileSizeBytes, 
              CreatedDate, ModifiedDate, AccessedDate, Content, ContentHash, 
              IsReadable, ErrorMessage)
@@ -136,6 +147,40 @@ public class DatabaseService : IDisposable
         }
 
         return totalInserted;
+    }
+
+    /// <summary>
+    /// Inserts a deployment release record into the database.
+    /// </summary>
+    /// <param name="deploymentRelease">The deployment release information to insert</param>
+    /// <param name="cancellationToken">Cancellation token for async operations</param>
+    /// <returns>The number of records inserted (should be 1 on success)</returns>
+    public async Task<int> InsertDeploymentReleaseAsync(DeploymentRelease deploymentRelease, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(deploymentRelease);
+
+        const string insertSql = """
+            INSERT INTO DEPLOYMENT_RELEASE
+            (RunId, Tags, Deployment, DeploymentDate)
+            VALUES 
+            (@RunId, @Tags, @Deployment, @DeploymentDate);
+            """;
+
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+
+        using var transaction = connection.BeginTransaction();
+        try
+        {
+            var rowsAffected = await connection.ExecuteAsync(insertSql, deploymentRelease, transaction);
+            transaction.Commit();
+            return rowsAffected;
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
     }
 
     /// <summary>

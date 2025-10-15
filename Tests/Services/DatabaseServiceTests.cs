@@ -200,6 +200,32 @@ public class DatabaseServiceTests
     }
 
     [Test]
+    public async Task InsertDeploymentReleaseAsync_WithNullDeploymentRelease_ThrowsException()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+
+        // Act & Assert
+        Assert.ThrowsAsync<ArgumentNullException>(async () => await service.InsertDeploymentReleaseAsync(null!));
+    }
+
+    [Test]
+    public void InsertDeploymentReleaseAsync_WithValidDeploymentRelease_DoesNotThrowOnCreation()
+    {
+        // Arrange
+        var service = new DatabaseService(TestConnectionString);
+        var deploymentRelease = CreateTestDeploymentRelease();
+
+        // Act & Assert - This validates the method exists and can be called
+        // In a real integration test, this would actually connect to a database
+        Assert.DoesNotThrow(() =>
+        {
+            var task = service.InsertDeploymentReleaseAsync(deploymentRelease);
+            Assert.That(task, Is.Not.Null);
+        });
+    }
+
+    [Test]
     public void DatabaseService_ConnectionStringProperty()
     {
         // Arrange & Act
@@ -229,6 +255,15 @@ public class DatabaseServiceTests
             ContentHash: "test-hash-123",
             IsReadable: true,
             ErrorMessage: null);
+    }
+
+    private static DeploymentRelease CreateTestDeploymentRelease()
+    {
+        return new DeploymentRelease(
+            RunId: Guid.NewGuid(),
+            Tags: "test,unit,deployment",
+            Deployment: "test-deployment-1.0",
+            DeploymentDate: new DateTime(2025, 10, 15, 14, 30, 0));
     }
 
     private static async IAsyncEnumerable<FileInformation> CreateTestFileInformationAsyncEnumerable()
