@@ -33,6 +33,9 @@ public class CommandLineService
         var batchSize = _configuration.GetValue<int>("DatabaseSettings:BatchSize", 500);
         var maxFileSize = _configuration.GetValue<long>("FileProcessingSettings:MaxFileSizeBytes", 100L * 1024 * 1024);
         var verbose = false;
+        var tags = string.Empty;
+        var deployment = string.Empty;
+        var deploymentDate = DateTime.UtcNow;
         var showHelp = false;
 
         for (var i = 0; i < args.Length; i++)
@@ -41,14 +44,14 @@ public class CommandLineService
 
             switch (arg)
             {
-                case "--directory" or "-d":
+                case "--source" or "-s":
                     if (i + 1 < args.Length)
                     {
                         directory = ExpandEnvironmentVariables(args[++i]);
                     }
                     else
                     {
-                        throw new ArgumentException("Directory parameter requires a value.");
+                        throw new ArgumentException("Source parameter requires a value.");
                     }
                     break;
 
@@ -62,7 +65,39 @@ public class CommandLineService
                         throw new ArgumentException("Connection string parameter requires a value.");
                     }
                     break;
-
+                case "--tags" or "-t":
+                    if (i + 1 < args.Length)
+                    {
+                        tags = ExpandEnvironmentVariables(args[++i]);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Tags parameter requires a value.");
+                    }
+                    break;
+                case "--deployment" or "-d":
+                    if (i + 1 < args.Length)
+                    {
+                        deployment = ExpandEnvironmentVariables(args[++i]);
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Deployment parameter requires a value.");
+                    }
+                    break;
+                case "--deployment-date" or "-dd":
+                    if (i + 1 < args.Length)
+                    {
+                        if (!DateTime.TryParse(args[++i], out deploymentDate))
+                        {
+                            throw new ArgumentException("Deployment date must be a valid date format.");
+                        }
+                    }
+                    else
+                    {
+                        throw new ArgumentException("Deployment date parameter requires a value.");
+                    }
+                    break;
                 case "--batch-size" or "-b":
                     if (i + 1 < args.Length)
                     {
@@ -113,7 +148,7 @@ public class CommandLineService
             }
         }
 
-        return new CommandLineOptions(directory, connectionString, batchSize, maxFileSize, verbose, showHelp);
+        return new CommandLineOptions(directory, connectionString, batchSize, maxFileSize, verbose, showHelp, tags, deployment, deploymentDate);
     }
 
     /// <summary>
@@ -125,13 +160,13 @@ public class CommandLineService
     {
         var errors = new List<string>();
 
-        if (string.IsNullOrEmpty(options.Directory))
+        if (string.IsNullOrEmpty(options.Source))
         {
-            errors.Add("Directory parameter is required.");
+            errors.Add("Source parameter is required.");
         }
-        else if (!Directory.Exists(options.Directory))
+        else if (!Directory.Exists(options.Source))
         {
-            errors.Add($"Directory '{options.Directory}' does not exist.");
+            errors.Add($"Source '{options.Source}' does not exist.");
         }
 
         if (options.BatchSize <= 0)
@@ -157,12 +192,16 @@ public class CommandLineService
         Console.WriteLine("Scans directories and stores file information in MSSQL database");
         Console.WriteLine();
         Console.WriteLine("USAGE:");
-        Console.WriteLine("  ReleaseCodeCollector --directory <path> [OPTIONS]");
+        Console.WriteLine("  ReleaseCodeCollector --source <path> [OPTIONS]");
         Console.WriteLine("  ReleaseCodeCollector <path> [OPTIONS]           (backward compatibility)");
         Console.WriteLine();
         Console.WriteLine("REQUIRED:");
-        Console.WriteLine("  -d, --directory <path>        Path to the directory to scan for files");
+        Console.WriteLine("  -s, --source <path>           Path to the source directory to scan for files");
         Console.WriteLine("                                Supports environment variables: %VAR%, $VAR, ${VAR}");
+        Console.WriteLine("  -t, --tags <string>           Comma-separated list of tags to associate with this run");
+        Console.WriteLine("  -d, --deployment <string>     Deployment identifier for this run");
+        Console.WriteLine("  -dd, --deployment-date <date> Date when the deployment was created or executed");
+        Console.WriteLine("                                Default: Current UTC date and time");
         Console.WriteLine();
         Console.WriteLine("OPTIONS:");
         Console.WriteLine("  -c, --connection <string>     MSSQL connection string");
@@ -177,21 +216,24 @@ public class CommandLineService
         Console.WriteLine();
         Console.WriteLine("EXAMPLES:");
         Console.WriteLine("  # Basic usage - scan C:\\Projects with default settings");
-        Console.WriteLine("  ReleaseCodeCollector --directory C:\\Projects");
+        Console.WriteLine("  ReleaseCodeCollector --source C:\\Projects");
         Console.WriteLine("  ReleaseCodeCollector C:\\Projects");
         Console.WriteLine();
         Console.WriteLine("  # Using environment variables");
-        Console.WriteLine("  ReleaseCodeCollector --directory %MY_PROJECT_PATH%");
-        Console.WriteLine("  ReleaseCodeCollector -d $HOME/projects -c \"Server=%DB_SERVER%;Database=%DB_NAME%;\"");
+        Console.WriteLine("  ReleaseCodeCollector --source %MY_PROJECT_PATH%");
+        Console.WriteLine("  ReleaseCodeCollector -s $HOME/projects -c \"Server=%DB_SERVER%;Database=%DB_NAME%;\"");
         Console.WriteLine();
         Console.WriteLine("  # With custom connection string");
-        Console.WriteLine("  ReleaseCodeCollector -d C:\\Code -c \"Server=myserver;Database=MyDB;User Id=user;Password=pass;\"");
+        Console.WriteLine("  ReleaseCodeCollector -s C:\\Code -c \"Server=myserver;Database=MyDB;User Id=user;Password=pass;\"");
         Console.WriteLine();
         Console.WriteLine("  # With custom batch size and verbose output");
-        Console.WriteLine("  ReleaseCodeCollector --directory D:\\Source --batch-size 1000 --verbose");
+        Console.WriteLine("  ReleaseCodeCollector --source D:\\Source --batch-size 1000 --verbose");
+        Console.WriteLine();
+        Console.WriteLine("  # With deployment tags and deployment date");
+        Console.WriteLine("  ReleaseCodeCollector -s C:\\Projects -t \"v1.0,production\" -d \"Release-2025-10-15\" -dd \"2025-10-15 14:30:00\"");
         Console.WriteLine();
         Console.WriteLine("  # Full configuration");
-        Console.WriteLine("  ReleaseCodeCollector -d C:\\Projects -c \"Server=prod;Database=CodeDB;Integrated Security=true;\" -b 250 -m 52428800 -v");
+        Console.WriteLine("  ReleaseCodeCollector -s C:\\Projects -c \"Server=prod;Database=CodeDB;Integrated Security=true;\" -b 250 -m 52428800 -v");
     }
 
     /// <summary>
