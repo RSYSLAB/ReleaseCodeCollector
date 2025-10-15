@@ -74,7 +74,7 @@ public class DatabaseService : IDatabaseService
         SELECT RunId, Tags, Deployment, DeploymentDate
         FROM DEPLOYMENT_RELEASE
         WHERE RunId = @RunId
-        ORDER BY ProcessedDate DESC;
+        ORDER BY DeploymentDate DESC;
         """;
 
     private const string SelectFileInformationByRunIdScript = """
