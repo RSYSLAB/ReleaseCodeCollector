@@ -64,6 +64,18 @@ internal class Program
             Console.WriteLine("✓ Database connection successful");
             Console.WriteLine();
 
+            // Insert deployment release record
+            Console.WriteLine("Recording deployment release information...");
+            var deploymentRelease = new DeploymentRelease(
+                RunId: runId,
+                Tags: options.Tags,
+                Deployment: options.Deployment,
+                DeploymentDate: options.DeploymentDate);
+
+            await databaseService.InsertDeploymentReleaseAsync(deploymentRelease);
+            Console.WriteLine("✓ Deployment release recorded");
+            Console.WriteLine();
+
             // Discover files
             Console.WriteLine($"Discovering files in: {options.Source}");
             var stopwatch = Stopwatch.StartNew();
