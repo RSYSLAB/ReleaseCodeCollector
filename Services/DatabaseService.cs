@@ -33,7 +33,7 @@ public class DatabaseService : IDatabaseService
             IsReadable BIT NOT NULL,
             ErrorMessage VARCHAR(1000),
             ProcessedDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-            FullPathHash AS CONVERT(VARCHAR(100), HASHBYTES('SHA1', FullPath), 2),
+            FullPathHash AS CONVERT(VARCHAR(64), HASHBYTES('SHA2_256', FullPath), 2),
             INDEX IX_DeploymentReleaseFiles_RunId NONCLUSTERED (RunId),
             INDEX IX_DeploymentReleaseFiles_FileExtension NONCLUSTERED (FileExtension),
             INDEX IX_DeploymentReleaseFiles_ModifiedDate NONCLUSTERED (ModifiedDate),
